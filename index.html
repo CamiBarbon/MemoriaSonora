@@ -24,6 +24,7 @@
 </div>
 
 <!-- JUEGO (oculto hasta click en comenzar) -->
+ <audio id="previewAudio" src="mp3/level1_preview.mp3" preload="auto"></audio>
 <div class="stage" id="gameStage" style="display:none">
   <div class="header">
 <div class="title neon-title">MEMORIA <span class="accent">SONORA</span></div>
@@ -43,8 +44,7 @@
         </div>
 
         <div class="controls">
-          <button id="repeatBtn" class="btn cyan">VOLVER A ESCUCHAR</button>
-          <button id="advanceBtn" class="btn pink">AVANZAR</button>
+          <button id="repeatBtn" class="btn cyan">VOLVER A ESCUCHAR CANCIÓN</button>
         </div>
       </div>
 
@@ -62,236 +62,298 @@
         </div>
 
         <div class="icons">
-          <div class="icon"><strong>Soft Cell (1981)</strong></div>
+          <div class="icon" id="levelArtist"><strong></strong></div>
         </div>
       </div>
     </aside>
   </div>
 </div>
-
-<!-- overlay (nivel completado) -->
-<div id="overlay" class="overlay">
-  <div class="card">
-    <h3 id="overlayTitle">Historia y contexto</h3>
-    <p id="overlayText1">(texto histórico técnico y sociocultural...)</p>
-    <p id="overlayText2">(apropiaciones posteriores y presentación del siguiente nivel...)</p>
-    <div class="card-actions">
-      <button id="playNext" class="btn pink">JUGAR SIGUIENTE NIVEL</button>
-    </div>
+<!-- overlay animado de nivel completado -->
+<div id="levelCompleteOverlay" class="level-complete-overlay" style="display:none">
+  <div class="bg-zoom"></div>
+  <div class="context-info">
+    <h2 id="contextTitle">Contexto Histórico</h2>
+    <p id="contextText1">(texto histórico técnico y sociocultural...)</p>
+    <p id="contextText2">(apropiaciones posteriores y presentación del siguiente nivel...)</p>
+    <button id="nextLevelBtn" class="btn pink">JUGAR SIGUIENTE NIVEL</button>
   </div>
 </div>
-
-<!-- audio (precargar preview; los beat individuales se crean al vuelo) -->
-<audio id="previewAudio" src="mp3/level1_preview.mp3" preload="auto"></audio>
-
 <script>
-  /* CONFIG */
-  const GRID_COLS = 4;
-  const GRID_ROWS = 4;
-  const TOTAL_TILES = GRID_COLS * GRID_ROWS; // 16
-  const INITIAL_PREVIEW_MS = 25000; // 25s
+/* ==============================
+   CONFIG
+============================== */
+const GRID_COLS = 4;
+const GRID_ROWS = 4;
+const TOTAL_TILES = GRID_COLS * GRID_ROWS; // 16
+const INITIAL_PREVIEW_MS = 25000; // 25s
 
-  const LEVELS = [
-    {
-      id:1,label:'Soft Cell (1981)', bg:'img/soft-cell.jpg', preview:'mp3/level1_preview.mp3',
-      // ejemplo de secuencia: 8 pasos (indices 0..19). Modificá según tu audio.
-      correctSequence: [1, 2, 5, 6, 9, 10, 13, 14]
+const LEVELS = [
+  {
+    id: 1,
+    label: 'Gloria Jones (1973)',
+    bg: 'img/gloria-jones.jpg',
+    preview: 'mp3/level1_preview.mp3',
+    correctSequence: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+    overlay: {
+      title: 'Historia y contexto — Gloria Jones',
+      text1: 'La versión original de “Tainted Love” fue grabada por Gloria Jones en 1965 dentro del circuito soul de la época, influenciada por el sonido Motown pero con una energía más cruda y directa. La canción nunca tuvo gran impacto en su lanzamiento inicial, pero con el tiempo se volvió un clásico oculto dentro de la cultura Northern Soul británica, donde los DJ rescataban joyas rítmicas poco conocidas para los clubes nocturnos. El pulso soul original funciona como la “memoria base” es la raíz emocional desde donde las demás adaptaciones se construyen, exageran o contradicen.',
+      text2: 'El siguiente nivel se explora otra reinterpretación del tema, con un estilo synthpop de los 80.'
     }
-  ];
+  },
+  {
+    id: 2,
+    label: 'Soft Cell (1981)',
+    bg: 'img/soft-cell.jpg',
+    preview: 'mp3/level2_preview.mp3',
+    correctSequence: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+    overlay: {
+      title: 'Historia y contexto — Soft Cell',
+      text1: 'La banda no solo versionó la canción: la reprogramó. Su reinterpretación desplaza la emocionalidad soul hacia una sensibilidad más fría, marcada por la artificialidad y la máquina. Este gesto convierte a la canción en un icono de época, demostrando cómo una obra puede mutar radicalmente al ser atravesada con nuevas tecnologías. Los sintetizadores analógicos, la repetición mecánica y la estética new wave convirtieron el tema en un símbolo de la cultura nocturna de comienzos de los 80. La versión alcanzó éxito global y definió buena parte de la identidad sonora del pop electrónico.',
+      text2: 'En el próximo nivel podremos explorar otro estilo y época musical.'
+    }
+  }
+];
 
-  /* STATE */
-  let currentLevelIndex = 0;
-  let tiles = [];
-  let userSequence = [];
-  let active = false;
-  let revealedCount = 0;
+/* ==============================
+   STATE
+============================== */
+let currentLevelIndex = 0;
+let tiles = [];
+let userSequence = [];
+let active = false;
+let revealedCount = 0;
 
-  /* DOM */
-  const startBtn = document.getElementById('startBtn');
-  const startScreen = document.getElementById('startScreen');
-  const gameStage = document.getElementById('gameStage');
-  const gridEl = document.getElementById('grid');
-  const bgImage = document.getElementById('bgImage');
-  const cd = document.getElementById('cd');
-  const previewAudio = document.getElementById('previewAudio');
-  const status = document.getElementById('status');
-  const levelLabel = document.getElementById('levelLabel');
+/* ==============================
+   DOM ELEMENTS
+============================== */
+const startBtn = document.getElementById('startBtn');
+const startScreen = document.getElementById('startScreen');
+const gameStage = document.getElementById('gameStage');
+const gridEl = document.getElementById('grid');
+const bgImage = document.getElementById('bgImage');
+const cd = document.getElementById('cd');
+const previewAudio = document.getElementById('previewAudio');
+const status = document.getElementById('status');
+const levelLabel = document.getElementById('levelLabel');
+const overlay = document.getElementById('levelCompleteOverlay');
 
-  function setStatus(s){ status.textContent = s }
+/* ==============================
+   HELPERS
+============================== */
+function setStatus(s){ status.textContent = s; }
 
-  /* RENDER GRID (16 tiles) */
-  function renderGrid(){
-    gridEl.innerHTML = '';
-    tiles = [];
-    for(let i=0;i<TOTAL_TILES;i++){
-      const t = document.createElement('div');
-      t.className = 'tile';
-      t.dataset.idx = i;
-      t.addEventListener('click', ()=> onTileClick(i, t));
-      gridEl.appendChild(t);
-      tiles.push(t);
+function renderGrid(){
+  gridEl.innerHTML = '';
+  tiles = [];
+  for(let i=0; i<TOTAL_TILES; i++){
+    const t = document.createElement('div');
+    t.className = 'tile';
+    t.dataset.idx = i;
+    t.addEventListener('click', ()=> onTileClick(i,t));
+    gridEl.appendChild(t);
+    tiles.push(t);
+  }
+}
+
+function playBeat(levelId, beatIndex){
+  return new Promise((resolve) => {
+    const audio = beatAudios[beatIndex]; // Tomamos el audio pre-cargado
+    if(!audio) {
+      console.error(`No se encontró el audio para beat ${beatIndex+1} del nivel ${levelId}`);
+      resolve();
+      return;
+    }
+    audio.currentTime = 0; // Reiniciar al inicio
+    const playPromise = audio.play();
+    if(playPromise !== undefined){
+      playPromise.catch(()=>{}).then(() => {});
+    }
+    audio.onended = resolve; // Resolver la promesa cuando termina
+  });
+}
+
+function updateBgOpacity(){
+  const min = 0.40;
+  const max = 0.75;
+  const ratio = Math.min(revealedCount / TOTAL_TILES, 1);
+  bgImage.style.opacity = (min + (max - min) * ratio).toString();
+}
+
+/* ==============================
+   GRID INTERACTION
+============================== */
+async function onTileClick(i, tileEl){
+  if(!active) return;
+  if(tileEl.classList.contains('revealed')) return;
+
+  const level = LEVELS[currentLevelIndex];
+
+  active = false;
+  tileEl.classList.add('revealed');
+
+  await playBeat(level.id, i);
+  userSequence.push(i);
+  validateSequence();
+  active = true;
+}
+
+function validateSequence(){
+  const level = LEVELS[currentLevelIndex];
+  const correct = level.correctSequence;
+
+  for(let k=0;k<userSequence.length;k++){
+    if(userSequence[k] !== correct[k]){
+      setStatus('No es el beat que sigue! Volvé a empezar :(');
+      active = false;
+      setTimeout(()=>{
+        tiles.forEach(t=>t.classList.remove('revealed'));
+        userSequence = [];
+        revealedCount = 0;
+        updateBgOpacity();
+        active = true;
+        setStatus('jugando');
+      },800);
+      return;
     }
   }
 
-  /* Bind control buttons (repeat, advance, overlay) */
-  function bindButtons(){
-    document.getElementById('repeatBtn').addEventListener('click', ()=> playPreview());
-    document.getElementById('advanceBtn').addEventListener('click', ()=> showLevelCompletePopup());
-    document.getElementById('playNext').addEventListener('click', ()=> { hideOverlay(); nextLevel(); });
+  if(userSequence.length === correct.length){
+    setStatus('¡Buena memoria! lo lograste');
+    active = false;
+    setTimeout(()=> showLevelCompletePopup(), 500);
+  } else {
+    setStatus(`aciertos ${userSequence.length}/${correct.length}`);
   }
+}
 
-  /* START BUTTON: muestra el juego y arranca el nivel (esto también desbloquea audio en navegadores) */
+/* ==============================
+   AUDIO
+============================== */
+function playPreview(){
+  return new Promise((resolve)=>{
+    try{
+      previewAudio.currentTime = 0;
+      const p = previewAudio.play();
+      if(p!==undefined) p.catch(()=>{}).then(()=>{});
+    } catch(e){}
+    setTimeout(()=> { previewAudio.pause(); resolve(); }, INITIAL_PREVIEW_MS);
+  });
+}
+
+/* ==============================
+   LEVEL MANAGEMENT
+============================== */
+let beatAudios = [];
+function loadLevel(idx){
+  currentLevelIndex = idx;
+  const L = LEVELS[idx];
+  levelLabel.textContent = L.id;
+
+  // Actualizar imagen de fondo del grid
+  bgImage.style.backgroundImage = `url('${L.bg}')`;
+
+  // Pre-cargar todos los beats de este nivel
+  beatAudios = [];
+  for(let i = 0; i < TOTAL_TILES; i++){
+    const audio = new Audio(`mp3/level${L.id}_beat${i+1}.mp3`);
+    beatAudios.push(audio);
+  }
+  // actualizar artista en sidebar
+    const artistDiv = document.getElementById('levelArtist');
+    if(artistDiv) artistDiv.innerHTML = `<strong>${L.label}</strong>`;
+
+  // Cargar audio de preview del nivel
+  previewAudio.src = L.preview;
+
+  // Resetear tiles y secuencia
+  tiles.forEach(t => t.classList.remove('revealed'));
+  userSequence = [];
+  revealedCount = 0;
+  updateBgOpacity();
+  active = false;
+  setStatus('Escuchá y recordá...');
+
+  // Animación del CD
+  cd.classList.add('spin');
+
+  // Reproducir preview
+  playPreview().then(() => {
+    cd.classList.remove('spin');
+    setTimeout(() => { enableGrid(); }, 250);
+  });
+}
+ 
+
+function enableGrid(){
+  tiles.forEach(t=> t.classList.remove('revealed'));
+  active = true;
+  setStatus('¡Momento de jugar!');
+}
+
+function nextLevel(){
+  const next = currentLevelIndex + 1;
+  if(next < LEVELS.length) loadLevel(next);
+  else alert('Has completado todos los niveles (demo).');
+}
+
+/* ==============================
+   OVERLAY DE NIVEL COMPLETADO
+============================== */
+function showLevelCompletePopup() {
+  const overlay = document.getElementById('levelCompleteOverlay');
+  const L = LEVELS[currentLevelIndex];
+
+  // actualizar bg y textos
+  overlay.querySelector('.bg-zoom').style.backgroundImage = `url('${L.bg}')`;
+  overlay.querySelector('#contextTitle').textContent = `Contexto — ${L.label}`;
+  overlay.querySelector('#contextText1').textContent = L.overlay.text1;
+  overlay.querySelector('#contextText2').textContent = L.overlay.text2;
+
+  // mostrar overlay y disparar animación
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.classList.add('zoomed'), 50);
+
+  // vincular botón siguiente nivel
+  const nextBtn = overlay.querySelector('#nextLevelBtn');
+  nextBtn.onclick = () => {
+    overlay.classList.remove('zoomed');
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      nextLevel(); // carga el siguiente nivel
+    }, 800);
+  };
+}
+
+// nextLevel() carga siguiente nivel o muestra mensaje final
+function nextLevel() {
+  const nextIndex = currentLevelIndex + 1;
+  if(nextIndex < LEVELS.length){
+    loadLevel(nextIndex);
+  } else {
+    alert('Has completado todos los niveles (demo).');
+  }
+}
+
+/* ==============================
+   START GAME
+============================== */
 startBtn.addEventListener('click', ()=>{
   startScreen.style.display = 'none';
-
   const ts = document.getElementById('transitionScreen');
   ts.style.display = 'flex';
 
   setTimeout(()=>{
     ts.style.display = 'none';
     gameStage.style.display = 'block';
-    initAfterStart();
-  }, 1500);  // 1.5s transición CD
-});
-
-  function initAfterStart(){
     renderGrid();
     bindButtons();
     loadLevel(0);
-  }
+  },1500);
+});
 
-  /* LOAD LEVEL */
-  function loadLevel(idx){
-    currentLevelIndex = idx;
-    const L = LEVELS[idx];
-    levelLabel.textContent = L.id;
-    bgImage.style.backgroundImage = `url('${L.bg}')`;
-    previewAudio.src = L.preview;
-    // reset tiles
-    tiles.forEach(t=>{ t.classList.remove('revealed'); });
-    userSequence = [];
-    revealedCount = 0;
-    updateBgOpacity();
-    active = false;
-    setStatus('Escuchá y recordá...');
-    cd.classList.add('spin');
-    playPreview().then(()=> {
-      cd.classList.remove('spin');
-      setTimeout(()=> { enableGrid(); }, 250);
-    });
-  }
-
-  /* PLAY PREVIEW (respetar user gesture) */
-  function playPreview(){
-    return new Promise((resolve)=>{
-      try {
-        previewAudio.currentTime = 0;
-        const playPromise = previewAudio.play();
-        // If browser returns a promise, wait a bit; otherwise resolve after timeout
-        if (playPromise !== undefined) {
-          playPromise.catch(()=>{}).then(()=>{ /* started */ });
-        }
-      } catch(e){}
-      setTimeout(()=>{ previewAudio.pause(); resolve(); }, INITIAL_PREVIEW_MS);
-    });
-  }
-
-  function enableGrid(){
-    // allow clicks; tiles are still visually translucent
-    tiles.forEach(t=> t.classList.remove('revealed'));
-    active = true; setStatus('¡Momento de jugar!');
-  }
-
-  /* When tile clicked */
-  async function onTileClick(i, tileEl){
-  if(!active) return;
-  if(tileEl.classList.contains('revealed')) return;
-
-  const level = LEVELS[currentLevelIndex];
-
-  active = false; // bloqueamos clicks mientras suena el beat
-  tileEl.classList.add('revealed'); // revela solo ese tile
-
-  playBeat(level.id, i).then(()=>{
-    userSequence.push(i);
-    validateSequence();
-    active = true; // desbloqueamos clicks
-  });
+function bindButtons(){
+  document.getElementById('repeatBtn').addEventListener('click', ()=> playPreview());
 }
-
-  function updateBgOpacity(){
-  const min = 0.40;  // más oscura al inicio
-  const max = 0.75;  // más visible al final
-  const ratio = Math.min(revealedCount / TOTAL_TILES, 1);
-  const op = min + (max - min) * ratio;
-  bgImage.style.opacity = op.toString();
-}
-
-  function playBeat(levelId, beatIndex){
-  return new Promise((resolve)=>{
-    const audio = new Audio(`mp3/level${levelId}_beat${beatIndex+1}.mp3`);
-    audio.play().catch(()=>{}); // start playing
-    audio.onended = resolve;     // cuando termina, resolve
-  });
-}
-
-  function validateSequence(){
-    const level = LEVELS[currentLevelIndex];
-    const correct = level.correctSequence;
-    // check prefix
-    for(let k=0;k<userSequence.length;k++){
-      if(userSequence[k] !== correct[k]){
-        // mistake
-        setStatus('No es el beat que sigue! Volvé a empezar :(');
-        active = false;
-        setTimeout(()=> {
-          // hide reveals and reset sequence and revealedCount
-          tiles.forEach(t=> t.classList.remove('revealed'));
-          userSequence = [];
-          revealedCount = 0;
-          updateBgOpacity();
-          active = true;
-          setStatus('jugando');
-        }, 800);
-        return;
-      }
-    }
-    // if completed
-    if(userSequence.length === correct.length){
-      setStatus('¡Buena memoria! lo lograste');
-      active = false;
-      setTimeout(()=> showLevelCompletePopup(), 500);
-    } else {
-      setStatus(`aciertos ${userSequence.length}/${correct.length}`);
-    }
-  }
-
-  function resetGame(){
-    userSequence = [];
-    tiles.forEach(t=> t.classList.remove('revealed'));
-    revealedCount = 0;
-    updateBgOpacity();
-    setStatus('Reiniciado');
-    active = true;
-  }
-
-  function showLevelCompletePopup(){
-    const overlay = document.getElementById('overlay');
-    const L = LEVELS[currentLevelIndex];
-    document.getElementById('overlayTitle').textContent = `Contexto — ${L.label}`;
-    document.getElementById('overlayText1').textContent = `Texto: historia técnica y sociocultural de la versión ${L.label}.`;
-    document.getElementById('overlayText2').textContent = `Apropiaciones y presentación del siguiente nivel.`;
-    overlay.style.display = 'flex';
-  }
-  function hideOverlay(){ document.getElementById('overlay').style.display = 'none'; }
-
-  function nextLevel(){
-    const next = currentLevelIndex + 1;
-    if(next < LEVELS.length){ loadLevel(next); }
-    else { alert('Has completado todos los niveles (demo).'); }
-  }
-
-  // Nota: no llamamos init() en load; solo inicializamos después del click en startBtn
 </script>
 </body>
 </html>
