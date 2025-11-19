@@ -7,9 +7,44 @@
   --neon-pink:#ff2fa8;
   --glass: rgba(255,255,255,0.06);
   --tile-opaque: 1;
-  --tile-hidden: 0.18;
+  --tile-hidden: 0.25;
+}
+/* ============================
+   FIX — LAYOUT GENERAL DEL JUEGO
+============================ */
+.main {
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
 }
 
+/* Left column contiene grid + controles */
+.left-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Right column: sidebar */
+.right-col {
+  width: 280px;
+}
+
+/* Asegura que el header muestre el título y el CD correctamente */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* wrapper del CD */
+.cd-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
 /* ============================
    RESETEO
 ============================ */
@@ -112,7 +147,9 @@ body{
   12%{ opacity:1; }
   100%{ transform:scale(1.15) rotate(360deg); opacity:1; }
 }
-
+#transitionScreen {
+  pointer-events: none;
+}
 /* ============================
    START SCREEN
 ============================ */
@@ -162,12 +199,48 @@ body{
 /* ============================
    GRID 4x4 = 16
 ============================ */
-.grid{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr)}
+.grid {
+  position:relative;
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  width: 94%;
+  height: 94%;   /* <-- acá estaba el problema REAL */
+  gap: 6px;
+  padding: 10px;
+  z-index: 2;
+}
 .game-area{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.05));border-radius:8px;padding:14px;display:flex;flex-direction:column;align-items:center}
 .grid-back{width:860px;max-width:100%;height:360px;background-size:cover;background-position:center;border-radius:6px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.bg-image{position:absolute;inset:0;background-size:cover;background-position:center;filter:contrast(0.95) saturate(1.1) brightness(0.7);opacity:0.22;transition:opacity .22s linear}
-.tile{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 120ms, background 160ms, opacity 220ms;opacity:var(--tile-hidden)}
-.tile.revealed{opacity:var(--tile-opaque);box-shadow:0 6px 20px rgba(0,0,0,0.55), inset 0 0 40px rgba(255,255,255,0.02); background: rgba(255,255,255,0.08)}
+.bg-image{z-index: 1; position:absolute;inset:0;background-size:cover;background-position:center;}
+/* ============================
+   TILES CON GLOW + OPACIDAD DINÁMICA
+============================ */
+.tile {
+  background-color: rgba(0, 0, 0, 0.767); /* negro opaco */
+  border: 2px solid var(--neon-cyan); /* glow en border */
+  box-shadow: 0 0 8px var(--neon-cyan);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  position: relative;
+}
+
+/* Al descubrir tile */
+.tile.revealed {
+    opacity: 0; /* deja ver la imagen de fondo en esa tile */
+  box-shadow: 0 0 12px rgba(0,224,255,0.5), 0 0 12px rgba(255,47,168,0.5);
+  background: rgba(0,0,0,0.6);
+    0 0 15px rgba(0,224,255,0.55),
+    0 0 30px rgba(255,47,168,0.45),
+    inset 0 0 20px rgba(255,255,255,0.05);
+     animation: tilePop 280ms ease-out forwards;
+}
+
+@keyframes tilePop {
+  0% { transform: scale(0.95); }
+  70% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
 .tile:active{transform:scale(0.98)}
 
 /* ============================
@@ -194,6 +267,15 @@ body{
 .card h3{color:var(--neon-pink);margin-bottom:8px}
 .card p{color:#cfefff;opacity:0.95;margin-bottom:10px}
 .card .card-actions{display:flex;gap:12px;justify-content:flex-end}
+
+
+#status {
+  font-size: 16px; /* un poco más grande */
+  font-weight: 600;
+  color: #bfe9ff;
+  opacity: 0.95;
+  margin-top: 8px;
+}
 
 /* ============================
    RESPONSIVE

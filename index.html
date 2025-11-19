@@ -15,7 +15,7 @@
 <div id="startScreen">
 <div id="startTitle" class="neon-title">MEMORIA <span class="accent">SONORA</span></div>
   <button id="startBtn">COMENZAR</button>
-  <div style="font-size:13px;color:#ff4fff;opacity:0.9">Hacé clic en comenzar para desbloquear el audio y ver el juego.</div>
+  <div style="font-size:13px;color:#37bcdd;opacity:0.9">Hacé clic en comenzar para desbloquear el audio y ver el juego.</div>
 </div>
 
 <!-- TRANSICIÓN ENTRE START Y JUEGO -->
@@ -55,14 +55,14 @@
       <div class="sidebar">
         <h4>Cómo jugar</h4>
         <div class="instr" id="instructions">
-          1) Al iniciar, suena un fragmento del tema (15s).<br>
-          2) Luego, la cuadrícula se habilita. Cada casilla es una porción de la imagen y esconde un beat.<br>
-          3) Clickeá para revelar casillas en orden. Si errás, la secuencia se reinicia.<br>
+          1) Prestá atención al fragmento del tema del inicio.<br>
+          2) Luego, la cuadrícula se habilita. Cada casilla esconde un beat.<br>
+          3) Clickeá para revelar los beats en orden. Si errás, la secuencia se reinicia.<br>
           4) Al completar, pasas de nivel! 
         </div>
 
         <div class="icons">
-          <div class="icon">🎵 <strong>Versión:</strong> Soft Cell (1981)</div>
+          <div class="icon"><strong>Soft Cell (1981)</strong></div>
         </div>
       </div>
     </aside>
@@ -95,7 +95,7 @@
     {
       id:1,label:'Soft Cell (1981)', bg:'img/soft-cell.jpg', preview:'mp3/level1_preview.mp3',
       // ejemplo de secuencia: 8 pasos (indices 0..19). Modificá según tu audio.
-      correctSequence: [2,3,8,9,12,13,16,17]
+      correctSequence: [1, 2, 5, 6, 9, 10, 13, 14]
     }
   ];
 
@@ -119,7 +119,7 @@
 
   function setStatus(s){ status.textContent = s }
 
-  /* RENDER GRID (20 tiles) */
+  /* RENDER GRID (16 tiles) */
   function renderGrid(){
     gridEl.innerHTML = '';
     tiles = [];
@@ -203,34 +203,37 @@ startBtn.addEventListener('click', ()=>{
   }
 
   /* When tile clicked */
-  function onTileClick(i, tileEl){
-    if(!active) return;
-    if(tileEl.classList.contains('revealed')) return;
-    // reveal visually
-    tileEl.classList.add('revealed');
-    revealedCount++;
-    updateBgOpacity();
-    // play small beat clip (file name convention: level{n}_beat{index+1}.mp3)
-    const level = LEVELS[currentLevelIndex];
-    playBeat(level.id, i);
+  async function onTileClick(i, tileEl){
+  if(!active) return;
+  if(tileEl.classList.contains('revealed')) return;
+
+  const level = LEVELS[currentLevelIndex];
+
+  active = false; // bloqueamos clicks mientras suena el beat
+  tileEl.classList.add('revealed'); // revela solo ese tile
+
+  playBeat(level.id, i).then(()=>{
     userSequence.push(i);
     validateSequence();
-  }
+    active = true; // desbloqueamos clicks
+  });
+}
 
   function updateBgOpacity(){
-    // base opacity (when 0 revealed) is 0.22 (CSS), max 1.0 when all revealed
-    const base = 0.22;
-    const max = 1.0;
-    const ratio = Math.min(revealedCount / TOTAL_TILES, 1);
-    const op = base + (max - base) * ratio;
-    bgImage.style.opacity = op.toString();
-  }
+  const min = 0.40;  // más oscura al inicio
+  const max = 0.75;  // más visible al final
+  const ratio = Math.min(revealedCount / TOTAL_TILES, 1);
+  const op = min + (max - min) * ratio;
+  bgImage.style.opacity = op.toString();
+}
 
   function playBeat(levelId, beatIndex){
-    // try to play a small clip — ensure files exist or ignore failure
+  return new Promise((resolve)=>{
     const audio = new Audio(`mp3/level${levelId}_beat${beatIndex+1}.mp3`);
-    audio.play().catch(()=>{ /* ignore */ });
-  }
+    audio.play().catch(()=>{}); // start playing
+    audio.onended = resolve;     // cuando termina, resolve
+  });
+}
 
   function validateSequence(){
     const level = LEVELS[currentLevelIndex];
